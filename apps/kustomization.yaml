@@ -1,0 +1,8 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# User applications go here
+# Add your app directories to resources:
+resources: []
+  # - my-app/
+  # - another-service/

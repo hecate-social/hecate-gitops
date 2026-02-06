@@ -1,0 +1,97 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: hecate-daemon
+  namespace: hecate
+  labels:
+    app.kubernetes.io/name: hecate-daemon
+    app.kubernetes.io/part-of: hecate-system
+spec:
+  selector:
+    matchLabels:
+      app: hecate-daemon
+  template:
+    metadata:
+      labels:
+        app: hecate-daemon
+    spec:
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+
+      volumes:
+        - name: socket-dir
+          hostPath:
+            path: /run/hecate
+            type: DirectoryOrCreate
+        - name: data-dir
+          hostPath:
+            path: /var/lib/hecate
+            type: DirectoryOrCreate
+
+      containers:
+        - name: daemon
+          image: ghcr.io/hecate-social/hecate-daemon:main
+          imagePullPolicy: Always
+
+          # Load config from ConfigMap and secrets
+          envFrom:
+            - configMapRef:
+                name: hecate-config
+            - secretRef:
+                name: hecate-secrets
+                optional: true  # Don't fail if no secrets yet
+
+          # Pod-specific env vars
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+
+          ports:
+            - name: mesh
+              containerPort: 4433
+              hostPort: 4433
+              protocol: UDP
+            - name: epmd
+              containerPort: 4369
+            - name: erlang-dist
+              containerPort: 9100
+
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /run/hecate
+            - name: data-dir
+              mountPath: /var/lib/hecate
+
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 4444
+              host: 127.0.0.1
+            initialDelaySeconds: 10
+            periodSeconds: 30
+
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 4444
+              host: 127.0.0.1
+            initialDelaySeconds: 5
+            periodSeconds: 10
+
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
