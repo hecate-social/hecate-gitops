@@ -56,15 +56,11 @@ spec:
                 fieldRef:
                   fieldPath: spec.nodeName
 
-          ports:
-            - name: mesh
-              containerPort: 4433
-              hostPort: 4433
-              protocol: UDP
-            - name: epmd
-              containerPort: 4369
-            - name: erlang-dist
-              containerPort: 9100
+          # Ports omitted - daemon binds to host network directly
+          # - 8180: health check
+          # - 4444: API
+          # - 4433: mesh (QUIC/UDP)
+          # - 9443: QUIC listener
 
           volumeMounts:
             - name: socket-dir
@@ -75,7 +71,7 @@ spec:
           livenessProbe:
             httpGet:
               path: /health
-              port: 4444
+              port: 8180
               host: 127.0.0.1
             initialDelaySeconds: 10
             periodSeconds: 30
@@ -83,7 +79,7 @@ spec:
           readinessProbe:
             httpGet:
               path: /health
-              port: 4444
+              port: 8180
               host: 127.0.0.1
             initialDelaySeconds: 5
             periodSeconds: 10
