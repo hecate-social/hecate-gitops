@@ -60,10 +60,9 @@ spec:
                   fieldPath: spec.nodeName
 
           # Ports omitted - daemon binds to host network directly
-          # - 8180: health check
-          # - 4444: API
           # - 4433: mesh (QUIC/UDP)
           # - 9443: QUIC listener
+          # TCP API removed for security - Unix socket only
 
           volumeMounts:
             - name: socket-dir
@@ -71,19 +70,23 @@ spec:
             - name: data-dir
               mountPath: /var/lib/hecate
 
+          # Health checks via socket file presence
+          # Socket only appears when daemon is ready and serving
           livenessProbe:
-            httpGet:
-              path: /health
-              port: 4444
-              host: 127.0.0.1
+            exec:
+              command:
+                - test
+                - -S
+                - /run/hecate/daemon.sock
             initialDelaySeconds: 10
             periodSeconds: 30
 
           readinessProbe:
-            httpGet:
-              path: /health
-              port: 4444
-              host: 127.0.0.1
+            exec:
+              command:
+                - test
+                - -S
+                - /run/hecate/daemon.sock
             initialDelaySeconds: 5
             periodSeconds: 10
 
