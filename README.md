@@ -64,6 +64,83 @@ git add -A && git commit -m "Update config"
 flux reconcile kustomization hecate-cluster
 ```
 
+## First-Time Setup: LLM API Keys
+
+The Hecate daemon auto-detects commercial LLM providers from environment variables. To use Claude, GPT-4, or Gemini models, add your API keys during initial setup.
+
+### Supported Providers
+
+| Environment Variable | Provider | Models |
+|---------------------|----------|--------|
+| `ANTHROPIC_API_KEY` | Anthropic | Claude 3.5 Sonnet, Claude 3 Opus, etc. |
+| `OPENAI_API_KEY` | OpenAI | GPT-4, GPT-4 Turbo, GPT-3.5, etc. |
+| `GOOGLE_API_KEY` | Google | Gemini Pro, Gemini Ultra, etc. |
+
+### Add API Keys (Install Time)
+
+Run this from a machine with cluster access:
+
+```bash
+cd /path/to/hecate-gitops
+
+# Option 1: Use the helper script (one key at a time)
+./scripts/seal-secret.sh ANTHROPIC_API_KEY "sk-ant-api03-..."
+
+# Copy the output and add to infrastructure/hecate/sealed-secrets.yaml:
+# spec:
+#   encryptedData:
+#     ANTHROPIC_API_KEY: AgBy8h...  # paste encrypted value
+
+# Option 2: Seal multiple keys at once
+cat > /tmp/secrets.yaml << 'EOF'
+apiVersion: v1
+kind: Secret
+metadata:
+  name: hecate-secrets
+  namespace: hecate
+stringData:
+  ANTHROPIC_API_KEY: "sk-ant-..."
+  OPENAI_API_KEY: "sk-..."
+  GOOGLE_API_KEY: "..."
+EOF
+
+kubeseal --format yaml < /tmp/secrets.yaml > infrastructure/hecate/sealed-secrets.yaml
+rm /tmp/secrets.yaml  # Don't commit plaintext!
+
+# Commit and push
+git add infrastructure/hecate/sealed-secrets.yaml
+git commit -m "feat: add LLM provider API keys"
+git push
+```
+
+### Add API Keys (After Install)
+
+If the daemon is already running, you can add keys and hot-reload:
+
+```bash
+# 1. Seal and commit the new key (as above)
+# 2. Wait for Flux to reconcile, or force it:
+flux reconcile kustomization hecate-infrastructure
+
+# 3. Restart the daemon to pick up new secrets:
+kubectl rollout restart daemonset/hecate-daemon -n hecate
+
+# Or call the reload endpoint (if secrets are already in the pod):
+curl -X POST http://localhost:4444/api/llm/providers/reload
+```
+
+### Verify Providers
+
+After setup, check that providers are detected:
+
+```bash
+curl http://localhost:4444/api/llm/providers | jq
+# Should show: ollama, anthropic, openai, google (whichever keys you added)
+
+curl http://localhost:4444/api/llm/models | jq '.models[].name'
+# Should include models from all configured providers
+```
+
 ## Managing Secrets
 
 Secrets are encrypted using Sealed Secrets. Only your cluster can decrypt them.
