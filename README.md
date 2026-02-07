@@ -4,14 +4,31 @@ GitOps configuration for Hecate node deployments using k3s and FluxCD.
 
 ## Overview
 
-This repository is a **seed template** for Hecate deployments. During installation:
+This repository provides **upstream-managed GitOps** for Hecate deployments.
 
-1. The installer clones this repo to `~/.hecate/gitops/`
-2. You customize it (seal secrets, adjust configs)
-3. You push to YOUR OWN remote (GitHub fork or private repo)
-4. FluxCD watches your remote and auto-deploys changes
+**How it works:**
+1. Flux watches this upstream repo and auto-syncs all nodes
+2. Updates to `hecate-social/hecate-gitops` propagate automatically to all clusters
+3. Node-specific config (hardware, secrets) is applied locally by the installer
+4. No fork needed for basic operation - just install and go
 
-**Why a fork?** Flux requires a remote Git URL (http/https/ssh). Your fork becomes your cluster's source of truth, where you can add your own applications and sealed secrets.
+**For power users:** Fork this repo, set `HECATE_GITOPS_URL` during install, and customize freely.
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  Upstream: hecate-social/hecate-gitops                 │
+│  • Base manifests (daemon, namespace, services)         │
+│  • Flux syncs automatically to all nodes                │
+└─────────────────────────────────────────────────────────┘
+                         │
+                         ▼ Flux pulls (every 1m)
+┌─────────────────────────────────────────────────────────┐
+│  Each Node                                              │
+│  • hecate-config: base settings (from upstream)         │
+│  • hecate-hardware: node-specific (applied by install) │
+│  • hecate-secrets: API keys (applied by install)        │
+└─────────────────────────────────────────────────────────┘
+```
 
 ## Structure
 
@@ -73,7 +90,7 @@ flux reconcile kustomization hecate-cluster
 
 ## First-Time Setup: LLM API Keys
 
-The Hecate daemon auto-detects commercial LLM providers from environment variables. To use Claude, GPT-4, or Gemini models, add your API keys during initial setup.
+The Hecate daemon auto-detects commercial LLM providers from environment variables.
 
 ### Supported Providers
 
@@ -83,111 +100,89 @@ The Hecate daemon auto-detects commercial LLM providers from environment variabl
 | `OPENAI_API_KEY` | OpenAI | GPT-4, GPT-4 Turbo, GPT-3.5, etc. |
 | `GOOGLE_API_KEY` | Google | Gemini Pro, Gemini Ultra, etc. |
 
-### Add API Keys (Install Time)
+### Add API Keys (During Install)
 
-Run this from a machine with cluster access:
+Set environment variables before running the installer:
 
 ```bash
-cd /path/to/hecate-gitops
+export ANTHROPIC_API_KEY="sk-ant-..."
+export OPENAI_API_KEY="sk-..."
+export GOOGLE_API_KEY="..."
 
-# Option 1: Use the helper script (one key at a time)
-./scripts/seal-secret.sh ANTHROPIC_API_KEY "sk-ant-api03-..."
-
-# Copy the output and add to infrastructure/hecate/sealed-secrets.yaml:
-# spec:
-#   encryptedData:
-#     ANTHROPIC_API_KEY: AgBy8h...  # paste encrypted value
-
-# Option 2: Seal multiple keys at once
-cat > /tmp/secrets.yaml << 'EOF'
-apiVersion: v1
-kind: Secret
-metadata:
-  name: hecate-secrets
-  namespace: hecate
-stringData:
-  ANTHROPIC_API_KEY: "sk-ant-..."
-  OPENAI_API_KEY: "sk-..."
-  GOOGLE_API_KEY: "..."
-EOF
-
-kubeseal --format yaml < /tmp/secrets.yaml > infrastructure/hecate/sealed-secrets.yaml
-rm /tmp/secrets.yaml  # Don't commit plaintext!
-
-# Commit and push
-git add infrastructure/hecate/sealed-secrets.yaml
-git commit -m "feat: add LLM provider API keys"
-git push
+# Run installer - it will detect and configure the keys
+curl -fsSL https://hecate.social/install.sh | bash
 ```
+
+The installer creates a Kubernetes secret (`hecate-secrets`) with your API keys.
 
 ### Add API Keys (After Install)
 
-If the daemon is already running, you can add keys and hot-reload:
-
 ```bash
-# 1. Seal and commit the new key (as above)
-# 2. Wait for Flux to reconcile, or force it:
-flux reconcile kustomization hecate-infrastructure
+# Option 1: Re-run installer with keys set
+export ANTHROPIC_API_KEY="sk-ant-..."
+~/.hecate/install.sh  # or re-download
 
-# 3. Restart the daemon to pick up new secrets:
+# Option 2: Create/update secret directly
+kubectl create secret generic hecate-secrets -n hecate \
+  --from-literal=ANTHROPIC_API_KEY="sk-ant-..." \
+  --from-literal=OPENAI_API_KEY="sk-..." \
+  --dry-run=client -o yaml | kubectl apply -f -
+
+# Restart daemon to pick up new secrets
 kubectl rollout restart daemonset/hecate-daemon -n hecate
 
-# Or call the reload endpoint (if secrets are already in the pod):
+# Or hot-reload without restart
 curl -X POST http://localhost:4444/api/llm/providers/reload
 ```
 
 ### Verify Providers
 
-After setup, check that providers are detected:
-
 ```bash
-curl http://localhost:4444/api/llm/providers | jq
-# Should show: ollama, anthropic, openai, google (whichever keys you added)
+curl -s http://localhost:4444/api/llm/providers | jq 'keys'
+# ["anthropic", "ollama", "openai"]
 
-curl http://localhost:4444/api/llm/models | jq '.models[].name'
-# Should include models from all configured providers
+curl -s http://localhost:4444/api/llm/models | jq '.models[].name'
+# claude-3-5-sonnet, gpt-4, llama3.2, etc.
 ```
 
 ## Managing Secrets
 
-Secrets are encrypted using Sealed Secrets. Only your cluster can decrypt them.
+Secrets are applied locally by the installer (not stored in git). This keeps API keys out of version control.
 
-### Add an API key
+### How Secrets Work
+
+| Secret | Applied By | Stored In |
+|--------|------------|-----------|
+| `hecate-secrets` | Install script | Kubernetes only (not git) |
+| `hecate-hardware` | Install script | Kubernetes only (not git) |
+
+### Update Secrets
+
 ```bash
-# Create a temporary secret file (DO NOT COMMIT)
-cat > /tmp/secret.yaml << EOF
-apiVersion: v1
-kind: Secret
-metadata:
-  name: hecate-secrets
-  namespace: hecate
-stringData:
-  ANTHROPIC_API_KEY: "sk-ant-your-key-here"
-  OPENAI_API_KEY: "sk-your-key-here"
-EOF
+# View current secrets
+kubectl get secret hecate-secrets -n hecate -o yaml
 
-# Seal it
-kubeseal --format yaml < /tmp/secret.yaml > infrastructure/hecate/sealed-secrets.yaml
+# Update a key
+kubectl create secret generic hecate-secrets -n hecate \
+  --from-literal=ANTHROPIC_API_KEY="new-key" \
+  --dry-run=client -o yaml | kubectl apply -f -
 
-# Clean up and commit
-rm /tmp/secret.yaml
-git add -A && git commit -m "Add API keys"
+# Restart daemon
+kubectl rollout restart daemonset/hecate-daemon -n hecate
 ```
 
-Or use the helper script:
-```bash
-./scripts/seal-secret.sh --file /tmp/secret.yaml
-```
+### Advanced: Sealed Secrets (for GitOps purists)
 
-### Install kubeseal CLI
-```bash
-# macOS
-brew install kubeseal
+If you want secrets in git (encrypted), use Sealed Secrets:
 
-# Linux
-wget https://github.com/bitnami-labs/sealed-secrets/releases/download/v0.27.3/kubeseal-0.27.3-linux-amd64.tar.gz
-tar -xzf kubeseal-*.tar.gz
-sudo mv kubeseal /usr/local/bin/
+```bash
+# Install kubeseal
+brew install kubeseal  # macOS
+# or download from github.com/bitnami-labs/sealed-secrets
+
+# Seal a secret
+./scripts/seal-secret.sh ANTHROPIC_API_KEY "sk-ant-..."
+# Add output to infrastructure/hecate/sealed-secrets.yaml
 ```
 
 ## Deploying Applications

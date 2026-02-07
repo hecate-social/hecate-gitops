@@ -33,13 +33,16 @@ spec:
           image: ghcr.io/hecate-social/hecate-daemon:main
           imagePullPolicy: Always
 
-          # Load config from ConfigMap and secrets
+          # Load config from ConfigMaps and secrets
           envFrom:
             - configMapRef:
                 name: hecate-config
+            - configMapRef:
+                name: hecate-hardware
+                optional: true  # Applied by install script, node-specific
             - secretRef:
                 name: hecate-secrets
-                optional: true  # Don't fail if no secrets yet
+                optional: true  # Applied by install script, contains API keys
 
           # Pod-specific env vars
           env:
