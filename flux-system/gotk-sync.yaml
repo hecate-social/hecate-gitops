@@ -2,7 +2,7 @@
 #
 # Two sources:
 # 1. hecate-gitops: Upstream repo for base infrastructure (auto-updates)
-# 2. hecate-local: Soft-serve git server for user apps (http://git-server.hecate:23232/)
+# 2. hecate-local: Local git HTTP server for user apps (http://git-server.hecate/)
 #
 ---
 # Upstream source - base infrastructure and daemon
@@ -39,7 +39,7 @@ metadata:
   namespace: flux-system
 spec:
   interval: 30s
-  url: http://git-server.hecate.svc.cluster.local:23232/hecate-gitops.git
+  url: http://git-server.hecate.svc.cluster.local/hecate-gitops.git
   ref:
     branch: main
   timeout: 20s

@@ -9,17 +9,9 @@ metadata:
 spec:
   type: ClusterIP
   ports:
-    - name: ssh
-      port: 23231
-      targetPort: 23231
-      protocol: TCP
     - name: http
-      port: 23232
-      targetPort: 23232
-      protocol: TCP
-    - name: git
-      port: 9418
-      targetPort: 9418
+      port: 80
+      targetPort: 8080
       protocol: TCP
   selector:
     app: git-server

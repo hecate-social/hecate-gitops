@@ -17,56 +17,39 @@ spec:
         app: git-server
     spec:
       containers:
-        - name: soft-serve
-          image: charmcli/soft-serve:v0.8.2
+        - name: git-http-backend
+          image: ynohat/git-http-server
           ports:
-            - name: ssh
-              containerPort: 23231
-              protocol: TCP
             - name: http
-              containerPort: 23232
-              protocol: TCP
-            - name: git
-              containerPort: 9418
+              containerPort: 8080
               protocol: TCP
           env:
-            - name: SOFT_SERVE_DATA_PATH
-              value: /data
-            - name: SOFT_SERVE_SSH_LISTEN_ADDR
-              value: ":23231"
-            - name: SOFT_SERVE_HTTP_LISTEN_ADDR
-              value: ":23232"
-            - name: SOFT_SERVE_GIT_LISTEN_ADDR
-              value: ":9418"
-            - name: SOFT_SERVE_SSH_PUBLIC_URL
-              value: "ssh://git-server.hecate:23231"
-            - name: SOFT_SERVE_HTTP_PUBLIC_URL
-              value: "http://git-server.hecate:23232"
-            # Allow anonymous read/write for local use
-            - name: SOFT_SERVE_ANON_ACCESS
-              value: "read-write"
+            - name: GIT_PROJECT_ROOT
+              value: /repos
           volumeMounts:
-            - name: data
-              mountPath: /data
+            - name: repos
+              mountPath: /repos
           resources:
             requests:
-              memory: "64Mi"
-              cpu: "50m"
+              memory: "32Mi"
+              cpu: "25m"
             limits:
-              memory: "256Mi"
-              cpu: "500m"
+              memory: "128Mi"
+              cpu: "250m"
           livenessProbe:
-            tcpSocket:
-              port: 23232
-            initialDelaySeconds: 10
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 5
             periodSeconds: 30
           readinessProbe:
-            tcpSocket:
-              port: 23232
-            initialDelaySeconds: 5
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 2
             periodSeconds: 10
       volumes:
-        - name: data
+        - name: repos
           hostPath:
-            path: /var/lib/hecate/soft-serve
+            path: /var/lib/hecate/repos
             type: DirectoryOrCreate
