@@ -17,33 +17,58 @@ spec:
         app: git-server
     spec:
       containers:
-        - name: git-daemon
-          image: alpine/git:latest
-          command:
-            - git
-            - daemon
-            - --verbose
-            - --export-all
-            - --base-path=/repos
-            - --reuseaddr
-            - --enable=receive-pack
-            - /repos
+        - name: soft-serve
+          image: charmcli/soft-serve:v0.8.2
+          args:
+            - serve
           ports:
+            - name: ssh
+              containerPort: 23231
+              protocol: TCP
+            - name: http
+              containerPort: 23232
+              protocol: TCP
             - name: git
               containerPort: 9418
               protocol: TCP
+          env:
+            - name: SOFT_SERVE_DATA_PATH
+              value: /data
+            - name: SOFT_SERVE_SSH_LISTEN_ADDR
+              value: ":23231"
+            - name: SOFT_SERVE_HTTP_LISTEN_ADDR
+              value: ":23232"
+            - name: SOFT_SERVE_GIT_LISTEN_ADDR
+              value: ":9418"
+            - name: SOFT_SERVE_SSH_PUBLIC_URL
+              value: "ssh://git-server.hecate:23231"
+            - name: SOFT_SERVE_HTTP_PUBLIC_URL
+              value: "http://git-server.hecate:23232"
+            # Allow anonymous read/write for local use
+            - name: SOFT_SERVE_ANON_ACCESS
+              value: "read-write"
           volumeMounts:
-            - name: repos
-              mountPath: /repos
+            - name: data
+              mountPath: /data
           resources:
             requests:
-              memory: "32Mi"
-              cpu: "25m"
+              memory: "64Mi"
+              cpu: "50m"
             limits:
-              memory: "128Mi"
-              cpu: "250m"
+              memory: "256Mi"
+              cpu: "500m"
+          livenessProbe:
+            tcpSocket:
+              port: 23232
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            tcpSocket:
+              port: 23232
+            initialDelaySeconds: 5
+            periodSeconds: 10
       volumes:
-        - name: repos
+        - name: data
           hostPath:
-            path: /var/lib/hecate/repos
+            path: /var/lib/hecate/soft-serve
             type: DirectoryOrCreate
