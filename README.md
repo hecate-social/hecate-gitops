@@ -15,19 +15,27 @@ This repository provides **upstream-managed GitOps** for Hecate deployments.
 **For power users:** Fork this repo, set `HECATE_GITOPS_URL` during install, and customize freely.
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│  Upstream: hecate-social/hecate-gitops                 │
-│  • Base manifests (daemon, namespace, services)         │
-│  • Flux syncs automatically to all nodes                │
-└─────────────────────────────────────────────────────────┘
-                         │
-                         ▼ Flux pulls (every 1m)
-┌─────────────────────────────────────────────────────────┐
-│  Each Node                                              │
-│  • hecate-config: base settings (from upstream)         │
-│  • hecate-hardware: node-specific (applied by install) │
-│  • hecate-secrets: API keys (applied by install)        │
-└─────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────────┐
+│  Upstream: github.com/hecate-social/hecate-gitops                            │
+│  • Base infrastructure (daemon, namespace, git-server)                       │
+│  • Auto-syncs to all nodes (Flux pulls every 1m)                             │
+└──────────────────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌──────────────────────────────────────────────────────────────────────────────┐
+│  Local: ~/.hecate/gitops/                                                    │
+│  ├── infrastructure/  ← from upstream (read-only)                            │
+│  └── apps/            ← YOUR apps (edit, commit, push)                       │
+│                                                                              │
+│  Workflow: edit apps/ → git commit → git push local main → Flux deploys!    │
+└──────────────────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌──────────────────────────────────────────────────────────────────────────────┐
+│  git-server (in-cluster)                                                     │
+│  • Serves local bare repo at git://git-server.hecate:9418/                   │
+│  • Flux watches for user app changes (every 30s)                             │
+└──────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ## Structure
@@ -36,24 +44,27 @@ This repository provides **upstream-managed GitOps** for Hecate deployments.
 hecate-gitops/
 ├── infrastructure/
 │   ├── sealed-secrets/     # Bitnami Sealed Secrets controller
+│   ├── git-server/         # Local git server for user apps
+│   │   ├── deployment.yaml
+│   │   └── service.yaml
 │   └── hecate/
 │       ├── namespace.yaml
-│       ├── configmap.yaml      # Daemon configuration
-│       ├── sealed-secrets.yaml # Encrypted secrets (API keys, etc.)
-│       ├── headless-service.yaml
+│       ├── configmap.yaml
 │       ├── daemonset.yaml
-│       └── kustomization.yaml
-├── apps/                   # Your applications go here
+│       └── ...
+├── apps/                   # YOUR applications go here
 │   ├── README.md
-│   └── kustomization.yaml
+│   ├── kustomization.yaml
+│   └── my-webapp/          # Example: add your apps here
+│       └── deployment.yaml
 ├── clusters/
-│   └── local/              # Cluster-specific overrides
+│   └── local/
 │       ├── kustomization.yaml
 │       └── hardware-patch.yaml
 ├── flux-system/
-│   └── gotk-sync.yaml      # FluxCD sync configuration
+│   └── gotk-sync.yaml      # Flux watches upstream + local
 └── scripts/
-    └── seal-secret.sh      # Helper for sealing secrets
+    └── seal-secret.sh
 ```
 
 ## Architecture Decisions
@@ -185,7 +196,67 @@ brew install kubeseal  # macOS
 # Add output to infrastructure/hecate/sealed-secrets.yaml
 ```
 
-## Deploying Applications
+## Deploying Your Apps
+
+Apps are deployed via the local git server. Flux watches and auto-deploys.
+
+### Quick Start
+
+```bash
+cd ~/.hecate/gitops/apps
+
+# Create your app
+mkdir my-webapp
+cat > my-webapp/deployment.yaml << 'EOF'
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-webapp
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: my-webapp
+  template:
+    metadata:
+      labels:
+        app: my-webapp
+    spec:
+      containers:
+        - name: app
+          image: nginx:alpine
+          ports:
+            - containerPort: 80
+EOF
+
+cat > my-webapp/kustomization.yaml << 'EOF'
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - deployment.yaml
+EOF
+
+# Add to apps kustomization
+echo "  - my-webapp" >> kustomization.yaml
+
+# Commit and push to local git server
+git add -A
+git commit -m "Add my-webapp"
+git push local main
+
+# Flux deploys within 30 seconds!
+kubectl get pods -l app=my-webapp
+```
+
+### How It Works
+
+1. **Edit** files in `~/.hecate/gitops/apps/`
+2. **Commit** your changes: `git commit -am "Update my-webapp"`
+3. **Push** to local: `git push local main`
+4. **Flux** detects changes and applies them (every 30s)
+
+### Legacy Method
 
 Add your applications to the `apps/` directory:
 

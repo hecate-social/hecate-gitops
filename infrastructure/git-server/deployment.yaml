@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: git-server
+  namespace: hecate
+  labels:
+    app.kubernetes.io/name: git-server
+    app.kubernetes.io/part-of: hecate-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: git-server
+  template:
+    metadata:
+      labels:
+        app: git-server
+    spec:
+      containers:
+        - name: git-daemon
+          image: alpine/git:latest
+          command:
+            - git
+            - daemon
+            - --verbose
+            - --export-all
+            - --base-path=/repos
+            - --reuseaddr
+            - --enable=receive-pack
+            - /repos
+          ports:
+            - name: git
+              containerPort: 9418
+              protocol: TCP
+          volumeMounts:
+            - name: repos
+              mountPath: /repos
+          resources:
+            requests:
+              memory: "32Mi"
+              cpu: "25m"
+            limits:
+              memory: "128Mi"
+              cpu: "250m"
+      volumes:
+        - name: repos
+          hostPath:
+            path: /var/lib/hecate/repos
+            type: DirectoryOrCreate

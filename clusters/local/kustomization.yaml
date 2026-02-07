@@ -5,6 +5,7 @@ kind: Kustomization
 resources:
   - ../../infrastructure/sealed-secrets  # Must come first
   - ../../infrastructure/hecate
+  - ../../infrastructure/git-server      # Local git server for user apps
   - ../../apps
 
 # Cluster-specific patches

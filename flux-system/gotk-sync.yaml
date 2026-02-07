@@ -1,13 +1,11 @@
 # FluxCD GitRepository and Kustomization
 #
-# IMPORTANT: Flux requires a remote Git URL (http/https/ssh).
-# Update the URL below to point to YOUR repository:
-#
-# Option 1: Fork hecate-gitops to your GitHub, use that URL
-# Option 2: For development, use the upstream repo (if you have push access)
-# Option 3: Skip Flux and use 'kubectl apply -k clusters/local/' directly
+# Two sources:
+# 1. hecate-gitops: Upstream repo for base infrastructure (auto-updates)
+# 2. hecate-local: Local git server for user apps (git://git-server.hecate:9418/)
 #
 ---
+# Upstream source - base infrastructure and daemon
 apiVersion: source.toolkit.fluxcd.io/v1
 kind: GitRepository
 metadata:
@@ -15,17 +13,15 @@ metadata:
   namespace: flux-system
 spec:
   interval: 1m
-  url: https://github.com/YOUR_USERNAME/hecate-gitops  # <-- UPDATE THIS
+  url: https://github.com/hecate-social/hecate-gitops
   ref:
     branch: main
-  # For private repos, add secretRef:
-  # secretRef:
-  #   name: git-credentials
 ---
+# Sync infrastructure from upstream
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: hecate-cluster
+  name: hecate-infrastructure
   namespace: flux-system
 spec:
   interval: 1m
@@ -34,3 +30,32 @@ spec:
     name: hecate-gitops
   path: ./clusters/local
   prune: true
+---
+# Local git server source - user apps
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: hecate-local
+  namespace: flux-system
+spec:
+  interval: 30s
+  url: git://git-server.hecate.svc.cluster.local:9418/hecate-gitops.git
+  ref:
+    branch: main
+  timeout: 20s
+---
+# Sync user apps from local git server
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: hecate-apps
+  namespace: flux-system
+spec:
+  interval: 30s
+  sourceRef:
+    kind: GitRepository
+    name: hecate-local
+  path: ./apps
+  prune: true
+  dependsOn:
+    - name: hecate-infrastructure
