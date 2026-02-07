@@ -41,8 +41,8 @@ spec:
                 name: hecate-hardware
                 optional: true  # Applied by install script, node-specific
             - secretRef:
-                name: hecate-api-keys
-                optional: true  # Contains commercial LLM API keys
+                name: hecate-secrets
+                optional: true  # Sealed secret with commercial LLM API keys
 
           # Pod-specific env vars
           env:
