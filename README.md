@@ -274,6 +274,45 @@ kubectl edit gitrepository hecate-gitops -n flux-system
 # Change spec.url from file:// to https://github.com/...
 ```
 
+## Well-Known Paths
+
+Hecate uses standardized paths across all installations:
+
+### Host Paths (on each node)
+
+| Path | Purpose |
+|------|---------|
+| `/var/lib/hecate/` | Daemon persistent data (events, state) |
+| `/run/hecate/` | Runtime files (Unix sockets) |
+| `~/.hecate/` | User configuration directory |
+| `~/.hecate/gitops/` | Local GitOps clone (for making changes) |
+| `~/.hecate/kubeconfig` | Cluster access (optional) |
+
+### Container Paths (inside daemon pod)
+
+| Path | Mapped From |
+|------|-------------|
+| `/var/lib/hecate/` | Host `/var/lib/hecate/` |
+| `/run/hecate/` | Host `/run/hecate/` |
+| `/data/` | Legacy alias for `/var/lib/hecate/` |
+
+### GitOps Management
+
+Flux watches GitHub directly, but you need a local clone to seal secrets or make changes:
+
+```bash
+# Standard location for gitops clone
+mkdir -p ~/.hecate
+git clone git@github.com:hecate-social/hecate-gitops.git ~/.hecate/gitops
+cd ~/.hecate/gitops
+
+# Make changes, seal secrets, then push
+./scripts/seal-secret.sh ANTHROPIC_API_KEY "sk-ant-..."
+git add -A && git commit -m "Add API key" && git push
+
+# Flux will pick up changes within 1 minute
+```
+
 ## External Components
 
 These run **outside** Kubernetes:
