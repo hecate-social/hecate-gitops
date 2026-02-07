@@ -4,7 +4,14 @@ GitOps configuration for Hecate node deployments using k3s and FluxCD.
 
 ## Overview
 
-This repository is cloned during Hecate installation and serves as the local GitOps source for your cluster. FluxCD watches this repo and automatically applies changes.
+This repository is a **seed template** for Hecate deployments. During installation:
+
+1. The installer clones this repo to `~/.hecate/gitops/`
+2. You customize it (seal secrets, adjust configs)
+3. You push to YOUR OWN remote (GitHub fork or private repo)
+4. FluxCD watches your remote and auto-deploys changes
+
+**Why a fork?** Flux requires a remote Git URL (http/https/ssh). Your fork becomes your cluster's source of truth, where you can add your own applications and sealed secrets.
 
 ## Structure
 
@@ -296,21 +303,37 @@ Hecate uses standardized paths across all installations:
 | `/run/hecate/` | Host `/run/hecate/` |
 | `/data/` | Legacy alias for `/var/lib/hecate/` |
 
-### GitOps Management
-
-Flux watches GitHub directly, but you need a local clone to seal secrets or make changes:
+### GitOps Workflow
 
 ```bash
-# Standard location for gitops clone
-mkdir -p ~/.hecate
-git clone git@github.com:hecate-social/hecate-gitops.git ~/.hecate/gitops
+# 1. Fork hecate-social/hecate-gitops on GitHub to YOUR_USERNAME/hecate-gitops
+
+# 2. Clone YOUR fork locally
+git clone git@github.com:YOUR_USERNAME/hecate-gitops.git ~/.hecate/gitops
 cd ~/.hecate/gitops
 
-# Make changes, seal secrets, then push
-./scripts/seal-secret.sh ANTHROPIC_API_KEY "sk-ant-..."
-git add -A && git commit -m "Add API key" && git push
+# 3. Update flux-system/gotk-sync.yaml with your fork URL
+sed -i 's|YOUR_USERNAME|your-actual-username|g' flux-system/gotk-sync.yaml
 
-# Flux will pick up changes within 1 minute
+# 4. Seal your API keys
+./scripts/seal-secret.sh ANTHROPIC_API_KEY "sk-ant-..."
+# Add output to infrastructure/hecate/sealed-secrets.yaml
+
+# 5. Commit and push to YOUR fork
+git add -A && git commit -m "Initial setup with API keys"
+git push origin main
+
+# 6. Apply Flux configuration to cluster
+kubectl apply -f flux-system/gotk-sync.yaml
+
+# Flux now watches YOUR fork and auto-deploys changes
+```
+
+**For Hecate maintainers** (push access to hecate-social/hecate-gitops):
+```bash
+# Use upstream directly without forking
+git clone git@github.com:hecate-social/hecate-gitops.git ~/.hecate/gitops
+# Update gotk-sync.yaml to point to hecate-social/hecate-gitops
 ```
 
 ## External Components

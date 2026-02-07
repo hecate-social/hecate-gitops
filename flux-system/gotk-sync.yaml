@@ -1,5 +1,12 @@
 # FluxCD GitRepository and Kustomization
-# Points to this local repository
+#
+# IMPORTANT: Flux requires a remote Git URL (http/https/ssh).
+# Update the URL below to point to YOUR repository:
+#
+# Option 1: Fork hecate-gitops to your GitHub, use that URL
+# Option 2: For development, use the upstream repo (if you have push access)
+# Option 3: Skip Flux and use 'kubectl apply -k clusters/local/' directly
+#
 ---
 apiVersion: source.toolkit.fluxcd.io/v1
 kind: GitRepository
@@ -8,9 +15,12 @@ metadata:
   namespace: flux-system
 spec:
   interval: 1m
-  url: file:///PATH/TO/LOCAL/REPO  # Updated by install script
+  url: https://github.com/YOUR_USERNAME/hecate-gitops  # <-- UPDATE THIS
   ref:
     branch: main
+  # For private repos, add secretRef:
+  # secretRef:
+  #   name: git-credentials
 ---
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
