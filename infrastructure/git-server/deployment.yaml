@@ -19,8 +19,6 @@ spec:
       containers:
         - name: soft-serve
           image: charmcli/soft-serve:v0.8.2
-          args:
-            - serve
           ports:
             - name: ssh
               containerPort: 23231
