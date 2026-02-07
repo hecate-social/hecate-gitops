@@ -71,7 +71,7 @@ spec:
           livenessProbe:
             httpGet:
               path: /health
-              port: 8180
+              port: 4444
               host: 127.0.0.1
             initialDelaySeconds: 10
             periodSeconds: 30
@@ -79,7 +79,7 @@ spec:
           readinessProbe:
             httpGet:
               path: /health
-              port: 8180
+              port: 4444
               host: 127.0.0.1
             initialDelaySeconds: 5
             periodSeconds: 10
