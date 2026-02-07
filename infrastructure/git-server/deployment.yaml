@@ -29,6 +29,10 @@ spec:
           volumeMounts:
             - name: repos
               mountPath: /var/lib/git
+              readOnly: true  # Security: no push capability
+          securityContext:
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
           resources:
             requests:
               memory: "32Mi"
