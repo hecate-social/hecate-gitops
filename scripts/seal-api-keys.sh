@@ -15,10 +15,12 @@ echo ""
 
 # Check kubeseal is installed
 if ! command -v kubeseal &>/dev/null; then
-    echo "kubeseal not found. Installing..."
+    echo "kubeseal not found. Installing to ~/.local/bin..."
     KUBESEAL_VERSION="0.27.3"
-    curl -sL "https://github.com/bitnami-labs/sealed-secrets/releases/download/v${KUBESEAL_VERSION}/kubeseal-${KUBESEAL_VERSION}-linux-amd64.tar.gz" | tar xz -C /tmp
-    sudo mv /tmp/kubeseal /usr/local/bin/
+    mkdir -p ~/.local/bin
+    curl -sL "https://github.com/bitnami-labs/sealed-secrets/releases/download/v${KUBESEAL_VERSION}/kubeseal-${KUBESEAL_VERSION}-linux-amd64.tar.gz" | tar xz -C ~/.local/bin
+    chmod +x ~/.local/bin/kubeseal
+    export PATH="$HOME/.local/bin:$PATH"
     echo "Installed kubeseal $(kubeseal --version)"
 fi
 
@@ -32,7 +34,7 @@ echo "Cluster accessible."
 
 # Check sealed-secrets controller is running
 echo "Checking sealed-secrets controller..."
-if ! kubectl --kubeconfig ~/.kube/beam-clusters/beam00.yaml get pods -n kube-system -l app.kubernetes.io/name=sealed-secrets -o name | grep -q pod; then
+if ! kubectl --kubeconfig ~/.kube/beam-clusters/beam00.yaml get pods -n kube-system 2>/dev/null | grep -q sealed-secrets-controller; then
     echo "ERROR: sealed-secrets controller not found in kube-system"
     exit 1
 fi
