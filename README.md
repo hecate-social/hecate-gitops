@@ -33,8 +33,9 @@ This repository provides **upstream-managed GitOps** for Hecate deployments.
                               ▼
 ┌──────────────────────────────────────────────────────────────────────────────┐
 │  git-server (in-cluster)                                                     │
-│  • Serves local bare repo at git://git-server.hecate:9418/                   │
+│  • Serves local bare repo at http://git-server.hecate/ (via HTTP)            │
 │  • Flux watches for user app changes (every 30s)                             │
+│  • Push via: git push local main (uses bare repo on control-plane node)      │
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
 
