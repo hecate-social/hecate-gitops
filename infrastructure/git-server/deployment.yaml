@@ -16,6 +16,9 @@ spec:
       labels:
         app: git-server
     spec:
+      # Run on control-plane node where install script creates the repo
+      nodeSelector:
+        node-role.kubernetes.io/control-plane: "true"
       containers:
         - name: git-http-backend
           image: cirocosta/gitserver-http
