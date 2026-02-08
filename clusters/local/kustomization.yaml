@@ -4,6 +4,7 @@ kind: Kustomization
 # Include base infrastructure and apps
 resources:
   - ../../infrastructure/sealed-secrets  # Must come first
+  - ../../infrastructure/image-automation # Flux image automation
   - ../../infrastructure/hecate
   - ../../infrastructure/git-server      # Local git server for user apps
   - ../../apps
