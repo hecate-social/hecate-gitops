@@ -30,7 +30,7 @@ spec:
 
       containers:
         - name: daemon
-          image: ghcr.io/hecate-social/hecate-daemon:main # {"$imagepolicy": "flux-system:hecate-daemon"}
+          image: ghcr.io/hecate-social/hecate-daemon:0.7.0
           imagePullPolicy: Always
 
           # Load config from ConfigMaps and secrets
