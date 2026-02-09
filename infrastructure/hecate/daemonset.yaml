@@ -30,7 +30,7 @@ spec:
 
       containers:
         - name: daemon
-          image: ghcr.io/hecate-social/hecate-daemon:main
+          image: ghcr.io/hecate-social/hecate-daemon:v0.7.3
           imagePullPolicy: Always
 
           # Load config from ConfigMaps and secrets
