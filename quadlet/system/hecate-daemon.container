@@ -9,14 +9,14 @@ ContainerName=hecate-daemon
 AutoUpdate=registry
 Network=host
 
-# Bind mount the daemon's data directory
-Volume=%h/.hecate/hecate-daemon:/home/rl/.hecate/hecate-daemon:Z
+# Convention: mount to match $HOME/.hecate/hecate-daemon inside container
+Volume=%h/.hecate/hecate-daemon:/app/.hecate/hecate-daemon:Z
 
 # Environment from file
 EnvironmentFile=%h/.hecate/gitops/system/hecate-daemon.env
 
-# Health check via socket presence
-HealthCmd=test -S /home/rl/.hecate/hecate-daemon/sockets/api.sock
+# Health check via socket presence (convention path)
+HealthCmd=test -S /app/.hecate/hecate-daemon/sockets/api.sock
 HealthInterval=30s
 HealthRetries=3
 HealthTimeout=5s

@@ -9,17 +9,14 @@ ContainerName=hecate-traderd
 AutoUpdate=registry
 Network=host
 
-# Bind mount the plugin's data directory
-Volume=%h/.hecate/hecate-traderd:/data:Z
+# Convention: mount to match $HOME/.hecate/hecate-traderd inside container
+Volume=%h/.hecate/hecate-traderd:/app/.hecate/hecate-traderd:Z
 
-# Also mount hecate-daemon socket dir (for registration)
-Volume=%h/.hecate/hecate-daemon/sockets:/run/hecate-daemon:ro
+# Daemon socket for plugin registration (convention path)
+Volume=%h/.hecate/hecate-daemon/sockets:/app/.hecate/hecate-daemon/sockets:ro
 
-# Environment from file
-EnvironmentFile=%h/.hecate/gitops/apps/hecate-traderd.env
-
-# Health check via socket presence
-HealthCmd=test -S /data/sockets/api.sock
+# Health check via socket presence (convention path)
+HealthCmd=test -S /app/.hecate/hecate-traderd/sockets/api.sock
 HealthInterval=30s
 HealthRetries=3
 HealthTimeout=5s
