@@ -1,437 +1,144 @@
 # Hecate GitOps
 
-GitOps configuration for Hecate node deployments using k3s and FluxCD.
+Per-node GitOps configuration for Hecate deployments using **systemd + podman**.
 
 ## Overview
 
-This repository provides **upstream-managed GitOps** for Hecate deployments.
-
-**How it works:**
-1. Flux watches this upstream repo and auto-syncs all nodes
-2. Updates to `hecate-social/hecate-gitops` propagate automatically to all clusters
-3. Node-specific config (hardware, secrets) is applied locally by the installer
-4. No fork needed for basic operation - just install and go
-
-**For power users:** Fork this repo, set `HECATE_GITOPS_URL` during install, and customize freely.
+Each Hecate node has a local `~/.hecate/gitops/` directory containing Podman Quadlet
+`.container` files. A lightweight reconciler watches this directory and symlinks
+units into systemd, keeping the running state in sync with the declared state.
 
 ```
-┌──────────────────────────────────────────────────────────────────────────────┐
-│  Upstream: github.com/hecate-social/hecate-gitops                            │
-│  • Base infrastructure (daemon, namespace, git-server)                       │
-│  • Auto-syncs to all nodes (Flux pulls every 1m)                             │
-└──────────────────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌──────────────────────────────────────────────────────────────────────────────┐
-│  Local: ~/.hecate/gitops/                                                    │
-│  ├── infrastructure/  ← from upstream (read-only)                            │
-│  └── apps/            ← YOUR apps (edit, commit, push)                       │
-│                                                                              │
-│  Workflow: edit apps/ → git commit → git push local main → Flux deploys!    │
-└──────────────────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌──────────────────────────────────────────────────────────────────────────────┐
-│  git-server (in-cluster)                                                     │
-│  • Serves local bare repo at http://git-server.hecate/ (via HTTP)            │
-│  • Flux watches for user app changes (every 30s)                             │
-│  • Push via: git push local main (uses bare repo on control-plane node)      │
-└──────────────────────────────────────────────────────────────────────────────┘
+~/.hecate/gitops/                    ~/.config/containers/systemd/
+├── system/                          (reconciler symlinks)
+│   ├── hecate-daemon.container  ──> hecate-daemon.container -> gitops/...
+│   └── hecate-daemon.env
+└── apps/                            (installed on demand)
+    ├── hecate-traderd.container ──> hecate-traderd.container -> gitops/...
+    └── ...
 ```
 
-## Structure
+**No cluster orchestrator.** Each node manages itself via systemd --user services.
+Nodes discover each other via BEAM clustering (same cookie, host networking) and
+the Macula mesh for WAN connectivity.
+
+## Repository Structure
 
 ```
 hecate-gitops/
-├── infrastructure/
-│   ├── sealed-secrets/     # Bitnami Sealed Secrets controller
-│   ├── git-server/         # Local git server for user apps
-│   │   ├── deployment.yaml
-│   │   └── service.yaml
-│   └── hecate/
-│       ├── namespace.yaml
-│       ├── configmap.yaml
-│       ├── daemonset.yaml
-│       └── ...
-├── apps/                   # YOUR applications go here
-│   ├── README.md
-│   ├── kustomization.yaml
-│   └── my-webapp/          # Example: add your apps here
-│       └── deployment.yaml
-├── clusters/
-│   └── local/
-│       ├── kustomization.yaml
-│       └── hardware-patch.yaml
-├── flux-system/
-│   └── gotk-sync.yaml      # Flux watches upstream + local
-└── scripts/
-    └── seal-secret.sh
+├── quadlet/
+│   ├── system/                     # Core daemon (always installed)
+│   │   ├── hecate-daemon.container
+│   │   └── hecate-daemon.env
+│   ├── apps/                       # Plugins (installed on demand)
+│   │   ├── hecate-traderd.container
+│   │   ├── hecate-traderd.env
+│   │   ├── hecate-traderw.container
+│   │   ├── hecate-marthad.container
+│   │   ├── hecate-marthad.env
+│   │   └── hecate-marthaw.container
+│   └── README.md
+├── reconciler/
+│   ├── hecate-reconciler.sh        # Watches gitops dir, reconciles symlinks
+│   ├── hecate-reconciler.service   # systemd user service for reconciler
+│   └── install-reconciler.sh       # Installer script
+├── scripts/
+│   ├── migrate-beam-to-podman.sh   # Migrate a node from k3s to podman
+│   └── decommission-k3s.sh        # Remove k3s after migration
+└── LICENSE
 ```
 
-## Architecture Decisions
+## How It Works
 
-| Concern | Decision | Rationale |
-|---------|----------|-----------|
-| **Daemon config** | ConfigMap + Kustomize patches | GitOps-native, per-cluster customization |
-| **Secrets** | Sealed Secrets | Encrypted in git, only cluster can decrypt |
-| **Ollama** | Systemd (outside k8s) | GPU passthrough, model persistence |
-| **Multi-node** | Server-only gitops | FluxCD distributes to agents via k8s |
+1. The installer seeds `~/.hecate/gitops/` with Quadlet files from this repo
+2. The **reconciler** watches `~/.hecate/gitops/system/` and `~/.hecate/gitops/apps/`
+3. It symlinks `.container` files to `~/.config/containers/systemd/`
+4. `systemctl --user daemon-reload` picks up the Quadlet units
+5. Podman runs containers as systemd user services
 
-## Quick Start
+## Node Directory Layout
 
-After installation, your cluster is automatically synced with this repo.
-
-### View current state
-```bash
-kubectl get pods -n hecate
-kubectl get pods -n flux-system
+```
+~/.hecate/
+├── gitops/
+│   ├── system/              # Core Quadlet files (from this repo)
+│   └── apps/                # Plugin Quadlet files (installed via hecate CLI)
+├── hecate-daemon/
+│   ├── sqlite/              # SQLite read models
+│   ├── reckon-db/            # Event store data (Khepri/Ra)
+│   ├── sockets/             # Unix socket (api.sock)
+│   ├── run/                 # Runtime files
+│   └── connectors/          # External service connectors
+├── config/
+│   └── node.env             # Node-specific overrides (RAM, CPU, node name)
+└── secrets/
+    └── api-keys.env          # API keys (ANTHROPIC, GOOGLE, GROQ)
 ```
 
-### Make changes
-```bash
-cd ~/.hecate/gitops
-# Edit manifests...
-git add -A && git commit -m "Update config"
-# FluxCD will apply within 1 minute
-```
-
-### Force sync
-```bash
-flux reconcile kustomization hecate-cluster
-```
-
-## First-Time Setup: LLM API Keys
-
-The Hecate daemon auto-detects commercial LLM providers from environment variables.
-
-### Supported Providers
-
-| Environment Variable | Provider | Models |
-|---------------------|----------|--------|
-| `ANTHROPIC_API_KEY` | Anthropic | Claude 3.5 Sonnet, Claude 3 Opus, etc. |
-| `OPENAI_API_KEY` | OpenAI | GPT-4, GPT-4 Turbo, GPT-3.5, etc. |
-| `GOOGLE_API_KEY` | Google | Gemini Pro, Gemini Ultra, etc. |
-
-### Add API Keys (During Install)
-
-Set environment variables before running the installer:
+## Managing Services
 
 ```bash
-export ANTHROPIC_API_KEY="sk-ant-..."
-export OPENAI_API_KEY="sk-..."
-export GOOGLE_API_KEY="..."
+# View all hecate services
+systemctl --user list-units 'hecate-*'
 
-# Run installer - it will detect and configure the keys
-curl -fsSL https://hecate.social/install.sh | bash
-```
-
-The installer creates a Kubernetes secret (`hecate-secrets`) with your API keys.
-
-### Add API Keys (After Install)
-
-```bash
-# Option 1: Re-run installer with keys set
-export ANTHROPIC_API_KEY="sk-ant-..."
-~/.hecate/install.sh  # or re-download
-
-# Option 2: Create/update secret directly
-kubectl create secret generic hecate-secrets -n hecate \
-  --from-literal=ANTHROPIC_API_KEY="sk-ant-..." \
-  --from-literal=OPENAI_API_KEY="sk-..." \
-  --dry-run=client -o yaml | kubectl apply -f -
-
-# Restart daemon to pick up new secrets
-kubectl rollout restart daemonset/hecate-daemon -n hecate
-
-# Or hot-reload without restart
-curl -X POST http://localhost:4444/api/llm/providers/reload
-```
-
-### Verify Providers
-
-```bash
-curl -s http://localhost:4444/api/llm/providers | jq 'keys'
-# ["anthropic", "ollama", "openai"]
-
-curl -s http://localhost:4444/api/llm/models | jq '.models[].name'
-# claude-3-5-sonnet, gpt-4, llama3.2, etc.
-```
-
-## Managing Secrets
-
-Secrets are applied locally by the installer (not stored in git). This keeps API keys out of version control.
-
-### How Secrets Work
-
-| Secret | Applied By | Stored In |
-|--------|------------|-----------|
-| `hecate-secrets` | Install script | Kubernetes only (not git) |
-| `hecate-hardware` | Install script | Kubernetes only (not git) |
-
-### Update Secrets
-
-```bash
-# View current secrets
-kubectl get secret hecate-secrets -n hecate -o yaml
-
-# Update a key
-kubectl create secret generic hecate-secrets -n hecate \
-  --from-literal=ANTHROPIC_API_KEY="new-key" \
-  --dry-run=client -o yaml | kubectl apply -f -
+# Check daemon status
+systemctl --user status hecate-daemon
 
 # Restart daemon
-kubectl rollout restart daemonset/hecate-daemon -n hecate
+systemctl --user restart hecate-daemon
+
+# View logs
+journalctl --user -u hecate-daemon -f
+
+# Install a plugin (copies Quadlet files to gitops/apps/)
+hecate install trader
+
+# Remove a plugin
+hecate remove trader
 ```
 
-### Advanced: Sealed Secrets (for GitOps purists)
+## Secrets
 
-If you want secrets in git (encrypted), use Sealed Secrets:
-
-```bash
-# Install kubeseal
-brew install kubeseal  # macOS
-# or download from github.com/bitnami-labs/sealed-secrets
-
-# Seal a secret
-./scripts/seal-secret.sh ANTHROPIC_API_KEY "sk-ant-..."
-# Add output to infrastructure/hecate/sealed-secrets.yaml
-```
-
-## Deploying Your Apps
-
-Apps are deployed via the local git server. Flux watches and auto-deploys.
-
-### Quick Start
+API keys are stored in `~/.hecate/secrets/api-keys.env` (chmod 600) and
+referenced from `~/.hecate/gitops/system/hecate-daemon.env`.
 
 ```bash
-cd ~/.hecate/gitops/apps
-
-# Create your app
-mkdir my-webapp
-cat > my-webapp/deployment.yaml << 'EOF'
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: my-webapp
-  namespace: default
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: my-webapp
-  template:
-    metadata:
-      labels:
-        app: my-webapp
-    spec:
-      containers:
-        - name: app
-          image: nginx:alpine
-          ports:
-            - containerPort: 80
+# Add or update API keys
+cat >> ~/.hecate/gitops/system/hecate-daemon.env << 'EOF'
+ANTHROPIC_API_KEY=sk-ant-...
+GOOGLE_API_KEY=...
+GROQ_API_KEY=...
 EOF
 
-cat > my-webapp/kustomization.yaml << 'EOF'
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
-resources:
-  - deployment.yaml
-EOF
-
-# Add to apps kustomization
-echo "  - my-webapp" >> kustomization.yaml
-
-# Commit and push to local git server
-git add -A
-git commit -m "Add my-webapp"
-git push local main
-
-# Flux deploys within 30 seconds!
-kubectl get pods -l app=my-webapp
+# Restart daemon to pick up changes
+systemctl --user restart hecate-daemon
 ```
 
-### How It Works
+## BEAM Clustering
 
-1. **Edit** files in `~/.hecate/gitops/apps/`
-2. **Commit** your changes: `git commit -am "Update my-webapp"`
-3. **Push** to local: `git push local main`
-4. **Flux** detects changes and applies them (every 30s)
+Nodes in the same LAN cluster automatically via Erlang distribution:
 
-### Legacy Method
+- All nodes use `--network host` (no container networking)
+- Cookie must match across nodes (`HECATE_COOKIE` in daemon env)
+- Node names follow `hecate@hostname` convention
+- Process groups (`pg`) handle intra-cluster communication
 
-Add your applications to the `apps/` directory:
+## Container Images
 
-```bash
-mkdir apps/my-service
-cat > apps/my-service/deployment.yaml << EOF
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: my-service
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: my-service
-  template:
-    metadata:
-      labels:
-        app: my-service
-    spec:
-      containers:
-        - name: app
-          image: my-image:latest
-EOF
+All images are published to `ghcr.io/hecate-social/`:
 
-cat > apps/my-service/kustomization.yaml << EOF
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
-resources:
-  - deployment.yaml
-EOF
+| Image | Description |
+|-------|-------------|
+| `ghcr.io/hecate-social/hecate-daemon` | Core daemon (Erlang/OTP) |
+| `ghcr.io/hecate-social/hecate-traderd` | Trader daemon |
+| `ghcr.io/hecate-social/hecate-traderw` | Trader frontend |
+| `ghcr.io/hecate-social/hecate-marthad` | Martha AI daemon |
+| `ghcr.io/hecate-social/hecate-marthaw` | Martha AI frontend |
 
-# Add to apps/kustomization.yaml
-# resources:
-#   - my-service/
+Images are tagged with semver (e.g., `0.8.1`). Never use `:latest`.
 
-git add -A && git commit -m "Add my-service"
-```
+## Podman 3.x Compatibility
 
-## Cluster-Specific Configuration
-
-Override settings for your specific cluster in `clusters/local/`:
-
-### Increase daemon resources
-```yaml
-# clusters/local/daemon-resources.yaml
-apiVersion: apps/v1
-kind: DaemonSet
-metadata:
-  name: hecate-daemon
-  namespace: hecate
-spec:
-  template:
-    spec:
-      containers:
-        - name: daemon
-          resources:
-            limits:
-              memory: 2Gi
-              cpu: 2000m
-```
-
-Then add to `clusters/local/kustomization.yaml`:
-```yaml
-patches:
-  - path: daemon-resources.yaml
-```
-
-## Multi-Node Clusters
-
-For multi-node setups:
-
-1. **Server node**: Has this gitops repo, runs FluxCD
-2. **Agent nodes**: Join cluster, receive workloads via k8s
-
-FluxCD only runs on the server. Agents don't need the gitops repo.
-
-### Optional: Push to GitHub
-
-For collaboration or backup, push to a remote:
-
-```bash
-git remote add origin git@github.com:youruser/my-hecate-gitops.git
-git push -u origin main
-
-# Update FluxCD to use remote
-kubectl edit gitrepository hecate-gitops -n flux-system
-# Change spec.url from file:// to https://github.com/...
-```
-
-## Well-Known Paths
-
-Hecate uses standardized paths across all installations:
-
-### Host Paths (on each node)
-
-| Path | Purpose |
-|------|---------|
-| `/var/lib/hecate/` | Daemon persistent data (events, state) |
-| `/run/hecate/` | Runtime files (Unix sockets) |
-| `~/.hecate/` | User configuration directory |
-| `~/.hecate/gitops/` | Local GitOps clone (for making changes) |
-| `~/.hecate/kubeconfig` | Cluster access (optional) |
-
-### Container Paths (inside daemon pod)
-
-| Path | Mapped From |
-|------|-------------|
-| `/var/lib/hecate/` | Host `/var/lib/hecate/` |
-| `/run/hecate/` | Host `/run/hecate/` |
-| `/data/` | Legacy alias for `/var/lib/hecate/` |
-
-### GitOps Workflow
-
-```bash
-# 1. Fork hecate-social/hecate-gitops on GitHub to YOUR_USERNAME/hecate-gitops
-
-# 2. Clone YOUR fork locally
-git clone git@github.com:YOUR_USERNAME/hecate-gitops.git ~/.hecate/gitops
-cd ~/.hecate/gitops
-
-# 3. Update flux-system/gotk-sync.yaml with your fork URL
-sed -i 's|YOUR_USERNAME|your-actual-username|g' flux-system/gotk-sync.yaml
-
-# 4. Seal your API keys
-./scripts/seal-secret.sh ANTHROPIC_API_KEY "sk-ant-..."
-# Add output to infrastructure/hecate/sealed-secrets.yaml
-
-# 5. Commit and push to YOUR fork
-git add -A && git commit -m "Initial setup with API keys"
-git push origin main
-
-# 6. Apply Flux configuration to cluster
-kubectl apply -f flux-system/gotk-sync.yaml
-
-# Flux now watches YOUR fork and auto-deploys changes
-```
-
-**For Hecate maintainers** (push access to hecate-social/hecate-gitops):
-```bash
-# Use upstream directly without forking
-git clone git@github.com:hecate-social/hecate-gitops.git ~/.hecate/gitops
-# Update gotk-sync.yaml to point to hecate-social/hecate-gitops
-```
-
-## External Components
-
-These run **outside** Kubernetes:
-
-| Component | Manager | Location |
-|-----------|---------|----------|
-| **Ollama** | systemd | `/usr/local/bin/ollama` |
-| **Models** | Ollama | `~/.ollama/models/` |
-| **TUI** | User | `~/.local/bin/hecate-tui` |
-
-## Troubleshooting
-
-### Check FluxCD status
-```bash
-flux get all
-flux logs
-```
-
-### Check daemon logs
-```bash
-kubectl logs -n hecate -l app=hecate-daemon -f
-```
-
-### Restart daemon
-```bash
-kubectl rollout restart daemonset/hecate-daemon -n hecate
-```
-
-### Sealed Secrets not decrypting
-```bash
-kubectl logs -n kube-system -l app.kubernetes.io/name=sealed-secrets
-```
+Podman Quadlet requires 4.4+. On Ubuntu 20.04 (which ships podman 3.4.x via kubic),
+the migration script generates plain `.service` files that call `podman run` directly,
+achieving equivalent functionality without Quadlet support.

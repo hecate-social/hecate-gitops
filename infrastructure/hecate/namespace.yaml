@@ -1,7 +1,0 @@
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: hecate
-  labels:
-    app.kubernetes.io/name: hecate
-    app.kubernetes.io/part-of: hecate-system

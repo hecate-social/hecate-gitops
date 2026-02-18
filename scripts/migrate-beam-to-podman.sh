@@ -140,6 +140,12 @@ enable_lingering() {
 create_directories() {
     log_info "Creating ~/.hecate/ directory layout..."
 
+    # Fix ownership if ~/.hecate was created by root (k3s hostPath volumes)
+    if [[ -d "${HECATE_HOME}" ]] && [[ "$(stat -c '%U' "${HECATE_HOME}")" != "$(whoami)" ]]; then
+        log_warn "${HECATE_HOME} owned by $(stat -c '%U' "${HECATE_HOME}"), fixing ownership..."
+        sudo chown -R "$(whoami):$(id -gn)" "${HECATE_HOME}"
+    fi
+
     local dirs=(
         "${HECATE_HOME}"
         "${GITOPS_DIR}/system"
