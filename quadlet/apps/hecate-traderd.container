@@ -4,7 +4,7 @@ After=hecate-daemon.service
 Wants=hecate-daemon.service
 
 [Container]
-Image=ghcr.io/hecate-social/hecate-traderd:0.1.0
+Image=ghcr.io/hecate-social/hecate-traderd:647b54d
 ContainerName=hecate-traderd
 AutoUpdate=registry
 Network=host
