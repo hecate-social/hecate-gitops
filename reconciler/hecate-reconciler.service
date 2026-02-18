@@ -1,0 +1,21 @@
+[Unit]
+Description=Hecate Reconciler (watches gitops, manages Quadlet units)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/hecate-reconciler --watch
+Restart=on-failure
+RestartSec=10s
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=hecate-reconciler
+
+# Environment
+Environment=HECATE_GITOPS_DIR=%h/.hecate/gitops
+
+[Install]
+WantedBy=default.target
