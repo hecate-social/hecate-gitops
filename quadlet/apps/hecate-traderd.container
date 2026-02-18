@@ -10,13 +10,16 @@ AutoUpdate=registry
 Network=host
 
 # Bind mount the plugin's data directory
-Volume=%h/.hecate/hecate-traderd:/home/rl/.hecate/hecate-traderd:Z
+Volume=%h/.hecate/hecate-traderd:/data:Z
+
+# Also mount hecate-daemon socket dir (for registration)
+Volume=%h/.hecate/hecate-daemon/sockets:/run/hecate-daemon:ro
 
 # Environment from file
 EnvironmentFile=%h/.hecate/gitops/apps/hecate-traderd.env
 
 # Health check via socket presence
-HealthCmd=test -S /home/rl/.hecate/hecate-traderd/sockets/api.sock
+HealthCmd=test -S /data/sockets/api.sock
 HealthInterval=30s
 HealthRetries=3
 HealthTimeout=5s
