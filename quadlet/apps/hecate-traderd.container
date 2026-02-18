@@ -1,0 +1,31 @@
+[Unit]
+Description=Hecate Trader Daemon (plugin)
+After=hecate-daemon.service
+Requires=hecate-daemon.service
+
+[Container]
+Image=ghcr.io/hecate-social/hecate-traderd:0.1.0
+ContainerName=hecate-traderd
+AutoUpdate=registry
+Network=host
+
+# Bind mount the plugin's data directory
+Volume=%h/.hecate/hecate-traderd:/home/rl/.hecate/hecate-traderd:Z
+
+# Environment from file
+EnvironmentFile=%h/.hecate/gitops/apps/hecate-traderd.env
+
+# Health check via socket presence
+HealthCmd=test -S /home/rl/.hecate/hecate-traderd/sockets/api.sock
+HealthInterval=30s
+HealthRetries=3
+HealthTimeout=5s
+HealthStartPeriod=10s
+
+[Service]
+Restart=on-failure
+RestartSec=5s
+TimeoutStartSec=60s
+
+[Install]
+WantedBy=default.target

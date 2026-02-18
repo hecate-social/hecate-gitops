@@ -1,0 +1,26 @@
+[Unit]
+Description=Hecate Martha AI Agent Web Frontend (plugin)
+After=hecate-marthad.service
+
+[Container]
+Image=ghcr.io/hecate-social/hecate-marthaw:0.1.0
+ContainerName=hecate-marthaw
+AutoUpdate=registry
+
+# Web frontend serves on a port (not a socket)
+PublishPort=5175:5175
+
+# Health check via HTTP
+HealthCmd=curl -sf http://localhost:5175/ || exit 1
+HealthInterval=30s
+HealthRetries=3
+HealthTimeout=5s
+HealthStartPeriod=5s
+
+[Service]
+Restart=on-failure
+RestartSec=5s
+TimeoutStartSec=30s
+
+[Install]
+WantedBy=default.target

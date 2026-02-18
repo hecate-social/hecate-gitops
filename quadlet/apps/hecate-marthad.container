@@ -1,0 +1,31 @@
+[Unit]
+Description=Hecate Martha AI Agent Daemon (plugin)
+After=hecate-daemon.service
+Requires=hecate-daemon.service
+
+[Container]
+Image=ghcr.io/hecate-social/hecate-marthad:0.1.0
+ContainerName=hecate-marthad
+AutoUpdate=registry
+Network=host
+
+# Bind mount the plugin's data directory (includes hecate-agents knowledge base)
+Volume=%h/.hecate/hecate-marthad:/home/rl/.hecate/hecate-marthad:Z
+
+# Environment from file
+EnvironmentFile=%h/.hecate/gitops/apps/hecate-marthad.env
+
+# Health check via socket presence
+HealthCmd=test -S /home/rl/.hecate/hecate-marthad/sockets/api.sock
+HealthInterval=30s
+HealthRetries=3
+HealthTimeout=5s
+HealthStartPeriod=10s
+
+[Service]
+Restart=on-failure
+RestartSec=5s
+TimeoutStartSec=60s
+
+[Install]
+WantedBy=default.target
