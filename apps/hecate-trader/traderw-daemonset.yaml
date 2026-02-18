@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: hecate-traderw
+  namespace: hecate
+  labels:
+    app.kubernetes.io/name: hecate-traderw
+    app.kubernetes.io/part-of: hecate-trader
+spec:
+  selector:
+    matchLabels:
+      app: hecate-traderw
+  template:
+    metadata:
+      labels:
+        app: hecate-traderw
+    spec:
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+
+      containers:
+        - name: traderw
+          image: ghcr.io/hecate-social/hecate-traderw:0.1.0
+          imagePullPolicy: Always
+
+          envFrom:
+            - configMapRef:
+                name: traderw-config
+
+          ports:
+            - containerPort: 5174
+              hostPort: 5174
+              protocol: TCP
+
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 5174
+            initialDelaySeconds: 5
+            periodSeconds: 30
+
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 5174
+            initialDelaySeconds: 3
+            periodSeconds: 10
+
+          resources:
+            requests:
+              memory: "32Mi"
+              cpu: "10m"
+            limits:
+              memory: "128Mi"
+              cpu: "100m"

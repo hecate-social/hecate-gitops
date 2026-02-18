@@ -3,6 +3,5 @@ kind: Kustomization
 
 # User applications go here
 # Add your app directories to resources:
-resources: []
-  # - my-app/
-  # - another-service/
+resources:
+  - hecate-trader/

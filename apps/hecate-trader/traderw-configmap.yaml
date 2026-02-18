@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: traderw-config
+  namespace: hecate
+data:
+  TRADERW_PORT: "5174"

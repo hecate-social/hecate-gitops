@@ -11,7 +11,7 @@ data:
   # API Configuration (localhost-only for security)
   HECATE_API_HOST: "127.0.0.1"
   HECATE_API_PORT: "4444"
-  HECATE_SOCKET_PATH: "/run/hecate/daemon.sock"
+  HECATE_SOCKET_PATH: "/home/rl/.hecate/hecate-daemon/sockets/api.sock"
 
   # LLM Backend
   OLLAMA_HOST: "http://localhost:11434"

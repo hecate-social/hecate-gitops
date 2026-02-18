@@ -21,11 +21,11 @@ spec:
       volumes:
         - name: socket-dir
           hostPath:
-            path: /run/hecate
+            path: /home/rl/.hecate/hecate-daemon/sockets
             type: DirectoryOrCreate
         - name: data-dir
           hostPath:
-            path: /var/lib/hecate
+            path: /home/rl/.hecate/hecate-daemon
             type: DirectoryOrCreate
 
       containers:
@@ -66,9 +66,9 @@ spec:
 
           volumeMounts:
             - name: socket-dir
-              mountPath: /run/hecate
+              mountPath: /home/rl/.hecate/hecate-daemon/sockets
             - name: data-dir
-              mountPath: /var/lib/hecate
+              mountPath: /home/rl/.hecate/hecate-daemon
 
           # Health checks via socket file presence
           # Socket only appears when daemon is ready and serving
@@ -77,7 +77,7 @@ spec:
               command:
                 - test
                 - -S
-                - /run/hecate/daemon.sock
+                - /home/rl/.hecate/hecate-daemon/sockets/api.sock
             initialDelaySeconds: 10
             periodSeconds: 30
 
@@ -86,7 +86,7 @@ spec:
               command:
                 - test
                 - -S
-                - /run/hecate/daemon.sock
+                - /home/rl/.hecate/hecate-daemon/sockets/api.sock
             initialDelaySeconds: 5
             periodSeconds: 10
 
