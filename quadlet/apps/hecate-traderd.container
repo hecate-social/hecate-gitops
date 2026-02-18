@@ -1,7 +1,7 @@
 [Unit]
 Description=Hecate Trader Daemon (plugin)
 After=hecate-daemon.service
-Requires=hecate-daemon.service
+Wants=hecate-daemon.service
 
 [Container]
 Image=ghcr.io/hecate-social/hecate-traderd:0.1.0

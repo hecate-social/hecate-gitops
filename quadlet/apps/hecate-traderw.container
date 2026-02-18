@@ -6,12 +6,10 @@ After=hecate-traderd.service
 Image=ghcr.io/hecate-social/hecate-traderw:0.1.0
 ContainerName=hecate-traderw
 AutoUpdate=registry
-
-# Web frontend serves on a port
-PublishPort=5174:5174
+Network=host
 
 # Mount traderd socket so nginx can proxy API calls
-Volume=%h/.hecate/hecate-traderd/sockets:/var/run/traderd:ro
+Volume=%h/.hecate/hecate-traderd/sockets:/var/run/traderd
 
 # Health check via HTTP
 HealthCmd=curl -sf http://localhost:5174/ || exit 1
