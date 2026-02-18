@@ -4,7 +4,7 @@ After=network-online.target
 Wants=network-online.target
 
 [Container]
-Image=ghcr.io/hecate-social/hecate-daemon:0.8.0
+Image=ghcr.io/hecate-social/hecate-daemon:0.8.1
 ContainerName=hecate-daemon
 AutoUpdate=registry
 Network=host
