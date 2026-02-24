@@ -20,7 +20,7 @@ quadlet/
 
 ## How It Works
 
-1. The installer (`hecate-node`) seeds `~/.hecate/gitops/` with these files
+1. The installer (`hecate-install`) seeds `~/.hecate/gitops/` with these files
 2. The reconciler symlinks `.container` files to `~/.config/containers/systemd/`
 3. `systemctl --user daemon-reload` picks up the Quadlet units
 4. Podman runs containers as systemd user services
