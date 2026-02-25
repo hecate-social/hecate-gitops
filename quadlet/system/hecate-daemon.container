@@ -17,7 +17,7 @@ Volume=%h/.hecate/hecate-daemon:%h/.hecate/hecate-daemon:Z
 
 # Environment from files
 EnvironmentFile=%h/.hecate/gitops/system/hecate-daemon.env
-EnvironmentFile=-%h/.hecate/secrets/llm-providers.env
+EnvironmentFile=%h/.hecate/secrets/llm-providers.env
 
 # Health check via convention path
 HealthCmd=test -S %h/.hecate/hecate-daemon/sockets/api.sock
