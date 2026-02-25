@@ -4,7 +4,7 @@ After=hecate-daemon.service
 Requires=hecate-daemon.service
 
 [Container]
-Image=ghcr.io/hecate-social/hecate-marthad:0.1.0
+Image=ghcr.io/hecate-social/hecate-marthad:latest
 ContainerName=hecate-marthad
 AutoUpdate=registry
 Network=host

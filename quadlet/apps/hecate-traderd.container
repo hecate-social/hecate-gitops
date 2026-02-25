@@ -4,19 +4,20 @@ After=hecate-daemon.service
 Wants=hecate-daemon.service
 
 [Container]
-Image=ghcr.io/hecate-social/hecate-traderd:647b54d
+Image=ghcr.io/hecate-social/hecate-traderd:latest
 ContainerName=hecate-traderd
 AutoUpdate=registry
 Network=host
 
-# Convention: mount to match $HOME/.hecate/hecate-traderd inside container
-Volume=%h/.hecate/hecate-traderd:/app/.hecate/hecate-traderd:Z
+# HOME=%h so convention paths (~/.hecate/...) resolve to real user home
+Environment=HOME=%h
 
-# Daemon socket for plugin registration (convention path)
-Volume=%h/.hecate/hecate-daemon/sockets:/app/.hecate/hecate-daemon/sockets:ro
+# Volume mounts at real home path — convention paths identical inside/outside
+Volume=%h/.hecate/hecate-traderd:%h/.hecate/hecate-traderd:Z
+Volume=%h/.hecate/hecate-daemon/sockets:%h/.hecate/hecate-daemon/sockets:ro
 
-# Health check via socket presence (convention path)
-HealthCmd=test -S /app/.hecate/hecate-traderd/sockets/api.sock
+# Health check via convention path
+HealthCmd=test -S %h/.hecate/hecate-traderd/sockets/api.sock
 HealthInterval=30s
 HealthRetries=3
 HealthTimeout=5s

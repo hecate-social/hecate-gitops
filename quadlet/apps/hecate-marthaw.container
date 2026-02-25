@@ -3,7 +3,7 @@ Description=Hecate Martha AI Agent Web Frontend (plugin)
 After=hecate-marthad.service
 
 [Container]
-Image=ghcr.io/hecate-social/hecate-marthaw:0.1.0
+Image=ghcr.io/hecate-social/hecate-marthaw:latest
 ContainerName=hecate-marthaw
 AutoUpdate=registry
 

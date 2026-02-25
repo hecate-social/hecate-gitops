@@ -135,7 +135,9 @@ All images are published to `ghcr.io/hecate-social/`:
 | `ghcr.io/hecate-social/hecate-marthad` | Martha AI daemon |
 | `ghcr.io/hecate-social/hecate-marthaw` | Martha AI frontend |
 
-Images are tagged with semver (e.g., `0.8.1`). Never use `:latest`.
+CI pushes both `:latest` and semver tags (e.g., `0.10.3`). `.container` files use
+`:latest` with `AutoUpdate=registry` for zero-touch deployments. Semver tags remain
+on ghcr.io for rollback — pin to a specific version when needed.
 
 ## Podman 3.x Compatibility
 
