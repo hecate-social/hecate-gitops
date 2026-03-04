@@ -27,7 +27,7 @@ HealthTimeout=5s
 HealthStartPeriod=10s
 
 [Service]
-Restart=on-failure
+Restart=always
 RestartSec=5s
 TimeoutStartSec=60s
 
