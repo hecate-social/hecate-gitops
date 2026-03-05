@@ -11,9 +11,16 @@ Network=host
 
 # HOME=%h so convention paths (~/.hecate/...) resolve to real user home
 Environment=HOME=%h
+Environment=XDG_RUNTIME_DIR=%t
+Environment=DBUS_SESSION_BUS_ADDRESS=unix:path=%t/bus
 
-# Volume mount at real home path — convention paths identical inside/outside
+# Volume mounts at real home path — convention paths identical inside/outside
 Volume=%h/.hecate/hecate-daemon:%h/.hecate/hecate-daemon:Z
+Volume=%h/.hecate/gitops:%h/.hecate/gitops:Z
+
+# Systemd/D-Bus access — allows daemon to manage plugin services
+Volume=%t/systemd:%t/systemd:ro
+Volume=%t/bus:%t/bus:ro
 
 # Environment from files
 EnvironmentFile=%h/.hecate/gitops/system/hecate-daemon.env
