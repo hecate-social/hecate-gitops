@@ -144,3 +144,29 @@ on ghcr.io for rollback — pin to a specific version when needed.
 Podman Quadlet requires 4.4+. On Ubuntu 20.04 (which ships podman 3.4.x via kubic),
 the migration script generates plain `.service` files that call `podman run` directly,
 achieving equivalent functionality without Quadlet support.
+
+## Watchtower label discipline
+
+Compose-based hosts (the beam cluster boxes) run Watchtower with
+`WATCHTOWER_LABEL_ENABLE=true`, so it only auto-updates containers whose
+image carries `com.centurylinklabs.watchtower.enable=true`.
+
+Containers created **before** the compose file added the label keep
+running without it even after a `docker compose up --build` rolls a new
+image. Watchtower silently skips them and the host drifts behind
+`ghcr.io`'s `:latest` tag. We hit this on 2026-04-28 — beam00–03 had
+hecate-daemon containers from a pre-label compose, and `:latest` rolled
+forward to `macula 3.12.1` without those containers being recreated.
+
+Run [`scripts/ensure-watchtower-labels.sh`](scripts/ensure-watchtower-labels.sh)
+on every container host periodically:
+
+```bash
+./scripts/ensure-watchtower-labels.sh           # dry-run
+./scripts/ensure-watchtower-labels.sh --apply   # force-recreate offenders
+```
+
+The script lists every running container missing the label and (with
+`--apply`) runs `docker compose up -d --force-recreate` to rebuild them
+from the current compose file (which must already declare the label).
+Scoped to one host at a time — run it per-box (beam00, beam01, …).
