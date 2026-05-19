@@ -1,0 +1,28 @@
+[Unit]
+Description=ReckonDB catalogue gateway (multi-cluster ingress, no data plane)
+After=network-online.target
+Wants=network-online.target
+
+[Container]
+Image=ghcr.io/reckon-db-org/reckon-gateway:latest
+ContainerName=reckon-gateway
+AutoUpdate=registry
+Network=host
+
+# clusters.eterm carries cookies — operator-owned, OUT of gitops.
+# Path on the host is the same on every beam node.
+Volume=%h/.hecate/secrets/reckon-gateway-clusters.eterm:/etc/reckon-gateway/clusters.eterm:ro,Z
+
+# Pid limit: BEAM with NIFs spawns plenty of threads; default 4096
+# is sometimes tight when paired with podman.
+PidsLimit=-1
+
+EnvironmentFile=%h/.hecate/gitops/system/reckon-gateway.env
+
+[Service]
+Restart=always
+RestartSec=10s
+TimeoutStartSec=60s
+
+[Install]
+WantedBy=default.target
