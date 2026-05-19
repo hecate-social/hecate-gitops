@@ -1,0 +1,28 @@
+[Unit]
+Description=Hecate parksim — parking_session lifecycle (CMD)
+After=network-online.target
+Wants=network-online.target
+
+[Container]
+Image=ghcr.io/hecate-services/hecate-parksim-entry2exit:latest
+ContainerName=hecate-parksim-entry2exit
+AutoUpdate=registry
+Network=host
+
+# Erlang dist on host net needs predictable hostnames; no PublishPort.
+# /bulk0 is the beam-fleet HDD per the lab hardware notes.
+Volume=/bulk0/hecate-parksim-entry2exit:/data:Z
+
+# pids-limit: BEAM with NIFs spawns enough threads that podman's default
+# 4096 cap can bite under load. Set to unlimited.
+PidsLimit=-1
+
+EnvironmentFile=%h/.hecate/gitops/system/hecate-parksim-entry2exit.env
+
+[Service]
+Restart=always
+RestartSec=10s
+TimeoutStartSec=60s
+
+[Install]
+WantedBy=default.target
