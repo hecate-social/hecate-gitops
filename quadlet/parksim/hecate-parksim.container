@@ -1,0 +1,24 @@
+[Unit]
+Description=Hecate parksim — multi-tenant parking simulator (single-tenant per container instance)
+After=network-online.target
+Wants=network-online.target
+
+[Container]
+Image=ghcr.io/hecate-services/hecate-parksim:latest
+ContainerName=hecate-parksim
+AutoUpdate=registry
+Network=host
+
+Volume=/bulk0/hecate-parksim:/data:Z
+
+PidsLimit=-1
+
+EnvironmentFile=%h/.hecate/gitops/system/hecate-parksim.env
+
+[Service]
+Restart=always
+RestartSec=10s
+TimeoutStartSec=60s
+
+[Install]
+WantedBy=default.target

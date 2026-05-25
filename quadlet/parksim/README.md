@@ -1,52 +1,47 @@
-# Parksim Quadlets
+# Parksim Quadlet
 
-Per-service quadlet units and env files for the `hecate-parksim-*` family.
+Single quadlet for `hecate-parksim` — a multi-tenant parking simulator
+collapsed from the former 7-service `hecate-parksim-*` family
+(facility/lot/pricing/entry2exit/entry-island/exit-island/payment-terminal,
+all retired 2026-05-25 in favour of a majestic monolith focused on feeding
+`reckon-gateway` + `reckon-lazy` with credible traffic).
 
-## Topology
+## Model
 
-Four releases, one per beam node, single Erlang cluster (shared cookie
-with the laptop reckon-gateway).
+- **Tenant = container instance.** Multi-tenancy is operational, not
+  architectural. To run N tenants, deploy N container instances with
+  distinct `TENANT_ID` + `NODE_NAME` env values.
+- **Each instance owns one reckon-db store** (`parksim_<TENANT_ID>_store`)
+  and self-announces to `reckon_db_store_registry` via pg.
+- **Erlang cluster** is optional. Multiple parksim containers (same
+  cookie + dist seed) form one cluster; the registry mirrors all stores
+  cluster-wide.
 
-| Service                        | Beam node    | IP            | Erlang node name                          | Dist port |
-|--------------------------------|--------------|---------------|-------------------------------------------|-----------|
-| `hecate-parksim-entry2exit`    | `beam00.lab` | 192.168.1.10  | `parksim_entry2exit@192.168.1.10`         | 9100      |
-| `hecate-parksim-lot`           | `beam01.lab` | 192.168.1.11  | `parksim_lot@192.168.1.11`                | 9100      |
-| `hecate-parksim-pricing`       | `beam02.lab` | 192.168.1.12  | `parksim_pricing@192.168.1.12`            | 9100      |
-| `hecate-parksim-simulator`     | `beam03.lab` | 192.168.1.13  | `parksim_simulator@192.168.1.13`          | 9100      |
+## Default topology
 
-The cookie is shared with the existing `reckon-gateway` instances (on
-each beam and on the laptop), so any node that pings any other forms
-one transitive cluster across all 9 BEAMs.
+| Beam node    | IP            | Default container name | Default `TENANT_ID` |
+|--------------|---------------|------------------------|---------------------|
+| `beam00.lab` | 192.168.1.10  | `hecate-parksim`       | (deploy-time)       |
+| `beam01.lab` | 192.168.1.11  | `hecate-parksim`       | (deploy-time)       |
+| `beam02.lab` | 192.168.1.12  | `hecate-parksim`       | (deploy-time)       |
+| `beam03.lab` | 192.168.1.13  | `hecate-parksim`       | (deploy-time)       |
+
+This file targets a single instance per node. For multi-tenant beams,
+duplicate `hecate-parksim.container` + `hecate-parksim.env` as
+`hecate-parksim-<tenant>.container` / `.env` with distinct `TENANT_ID`
+values.
 
 ## Files
 
 ```
 quadlet/parksim/
-├── hecate-parksim-entry2exit.container   # beam00 target
-├── hecate-parksim-entry2exit.env
-├── hecate-parksim-lot.container          # beam01 target
-├── hecate-parksim-lot.env
-├── hecate-parksim-pricing.container      # beam02 target
-├── hecate-parksim-pricing.env
-├── hecate-parksim-simulator.container    # beam03 target
-└── hecate-parksim-simulator.env
+├── hecate-parksim.container
+└── hecate-parksim.env
 ```
 
 ## Deployment
 
-Stage-5 deploy script copies one `.container` + matching `.env` onto
-its target beam, then `systemctl --user daemon-reload && systemctl --user
-start <unit>`. The reconciler symlinks the container into
-`~/.config/containers/systemd/`.
-
-**Note:** the beam fleet currently runs `docker` + `watchtower` rather
-than `podman` + `auto-update`. These quadlet files are forward-compatible
-with the podman migration; the active mechanism is the equivalent
-service entry in `compose/docker-compose.yml`.
-
-## Seed-ping bootstrap
-
-Erlang dist has no auto-discovery. Each parksim release reads
-`HECATE_DIST_SEED` from its env file and connects to that node at boot
-(planned in a subsequent commit; for now, ping manually after the unit
-starts on the first beam).
+Copy `hecate-parksim.container` + `hecate-parksim.env` onto the target
+beam, then `systemctl --user daemon-reload && systemctl --user start
+hecate-parksim`. Image auto-updates via `podman auto-update` /
+`watchtower`.
